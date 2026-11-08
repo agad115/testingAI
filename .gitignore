@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Результаты прогонов (создаются main.py)
+results/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
