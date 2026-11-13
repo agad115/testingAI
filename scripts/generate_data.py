@@ -1,4 +1,4 @@
-"""Генерация синтетических тестовых данных (``data/*.lst``).
+"""Генерация синтетических тестовых данных (``data/*``).
 
 Создаётся 2D задача Пуассона с пяти-точечной схемой на решётке m x p:
 
@@ -8,13 +8,15 @@
 * ``B``      — "измеренная" правая часть ``B_base + шум`` (малое отклонение,
   как в исходных данных задачи).
 
-Формат файла соответствует ``Files.read`` (см. README).
+Каждая задача выводится во все поддерживаемые ``Files.read`` форматы:
+``.lst``, ``.json``, ``.csv``, ``.npz`` (см. README).
 
 Запуск::
 
     python scripts/generate_data.py
 """
 
+import json
 import os
 
 import numpy as np
@@ -67,15 +69,46 @@ def write_lst(path, name, A, B, B_base, X_true):
             f.write(f"{i + 1} {B_base[i]:.15g} {X_true[i]:.15g}\n")
 
 
+def write_json(path, A, B, B_base, X_true):
+    """Записать задачу в формате ``.json``."""
+    data = {
+        "matrix": A.tolist(),
+        "vector": B.tolist(),
+        "result": X_true.tolist(),
+        "vector_mod": B_base.tolist(),
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+
+
+def write_csv(path, A, B, B_base, X_true):
+    """Записать задачу в формате ``.csv`` (секции matrix/vector/result/vector_mod)."""
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("matrix\n")
+        for row in A:
+            f.write(",".join(f"{v:.15g}" for v in row) + "\n")
+        for section, values in (("vector", B), ("result", X_true), ("vector_mod", B_base)):
+            f.write(f"{section}\n")
+            f.write(",".join(f"{v:.15g}" for v in values) + "\n")
+
+
+def write_npz(path, A, B, B_base, X_true):
+    """Записать задачу в архив NumPy ``.npz`` (ключи A/b/x_ref/b_base)."""
+    np.savez(path, A=A, b=B, x_ref=X_true, b_base=B_base)
+
+
 def generate(name, m, p, seed=42, noise=1e-4):
-    """Сгенерировать задачу ``data/<name>.lst`` на решётке m x p."""
+    """Сгенерировать задачу ``data/<name>.{lst,json,csv,npz}`` на решётке m x p."""
     rng = np.random.RandomState(seed)
     A = poisson_matrix(m, p)
     X_true = exact_solution(m, p)
     B_base = A @ X_true
     B = B_base + noise * rng.randn(B_base.size)
     write_lst(os.path.join(DATA_DIR, f"{name}.lst"), name, A, B, B_base, X_true)
-    print(f"Создан {name}.lst: решётка {m}x{p}, узлов {A.shape[0]}")
+    write_json(os.path.join(DATA_DIR, f"{name}.json"), A, B, B_base, X_true)
+    write_csv(os.path.join(DATA_DIR, f"{name}.csv"), A, B, B_base, X_true)
+    write_npz(os.path.join(DATA_DIR, f"{name}.npz"), A, B, B_base, X_true)
+    print(f"Создан {name}.{{lst,json,csv,npz}}: решётка {m}x{p}, узлов {A.shape[0]}")
 
 
 if __name__ == "__main__":
